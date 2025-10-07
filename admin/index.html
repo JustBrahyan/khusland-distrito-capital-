@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Khusland — Panel de Gestión</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#0b0f14">
+  <style>
+    html,body { background:#0b0f14; color:#e5e7eb; font-family: ui-sans-serif, system-ui; }
+    .card { background: linear-gradient(180deg,#0e141b 0%, #0b0f14 100%); border: 1px solid rgba(229,199,123,0.15); border-radius: 1rem; }
+    .gold { color:#e5c77b }
+    .badge { background: rgba(31,163,109,.12); border: 1px solid rgba(31,163,109,.35); border-radius:.5rem; padding:.125rem .5rem; font-size:.75rem; }
+    .chip { border:1px solid #30363d; border-radius:.5rem; padding:.15rem .5rem; font-size:.75rem; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="sticky top-0 z-30 border-b border-zinc-800/60 bg-[#0b0f14]/80 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-semibold tracking-wide">Khusland <span class="gold">— Panel</span></h1>
+        <span class="badge">Distrito Capital</span>
+      </div>
+      <a href="/" class="text-sm text-emerald-300 hover:underline">← Volver a la tienda</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Login -->
+    <section id="loginCard" class="card p-6 max-w-md mx-auto">
+      <h2 class="text-lg font-semibold mb-2">🔒 Acceso restringido</h2>
+      <p class="text-zinc-400 text-sm mb-4">Ingresa la clave única del panel para continuar.</p>
+      <input id="adminPass" type="password" placeholder="Contraseña del panel" class="w-full bg-transparent border border-emerald-500/40 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-400" />
+      <button id="enterBtn" class="mt-3 w-full px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium">Entrar</button>
+      <p id="loginMsg" class="text-red-400 text-sm mt-2 hidden">Contraseña incorrecta.</p>
+    </section>
+
+    <!-- Panel -->
+    <section id="panel" class="hidden space-y-6">
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="card p-4">
+          <div class="text-xs text-zinc-400">Pedidos totales</div>
+          <div id="statTotal" class="text-2xl font-semibold mt-1">—</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs text-zinc-400">Pendientes</div>
+          <div id="statPending" class="text-2xl font-semibold mt-1">—</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-xs text-zinc-400">Ingresos (estimado)</div>
+          <div id="statRevenue" class="text-2xl font-semibold mt-1">—</div>
+        </div>
+      </div>
+
+      <div class="card p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold">📦 Pedidos</h3>
+          <div class="flex items-center gap-2 text-sm">
+            <label class="text-zinc-400">Filtrar:</label>
+            <select id="filterStatus" class="bg-transparent border border-zinc-700 rounded-lg px-2 py-1">
+              <option value="all">Todos</option>
+              <option value="pending">Pendiente</option>
+              <option value="accepted">Aceptado</option>
+              <option value="rejected">Rechazado</option>
+            </select>
+            <button id="refreshBtn" class="ml-2 px-3 py-1 rounded-lg border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10">Actualizar</button>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="text-zinc-400">
+              <tr class="text-left border-b border-zinc-800">
+                <th class="py-2">Fecha</th>
+                <th>IC</th>
+                <th>Productos</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const fmt = n => "$" + Number(n).toLocaleString("es-CO");
+
+    // UI
+    const loginCard = document.getElementById('loginCard');
+    const panel = document.getElementById('panel');
+    const adminPass = document.getElementById('adminPass');
+    const enterBtn = document.getElementById('enterBtn');
+    const loginMsg = document.getElementById('loginMsg');
+
+    const ordersBody = document.getElementById('ordersBody');
+    const statTotal = document.getElementById('statTotal');
+    const statPending = document.getElementById('statPending');
+    const statRevenue = document.getElementById('statRevenue');
+    const filterStatus = document.getElementById('filterStatus');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    function getKey() {
+      return sessionStorage.getItem('khusland_admin_key') || '';
+    }
+    function setKey(k) {
+      sessionStorage.setItem('khusland_admin_key', k);
+    }
+
+    async function login() {
+      const k = adminPass.value.trim();
+      if (!k) return;
+      const ok = await testKey(k);
+      if (ok) {
+        setKey(k);
+        loginCard.classList.add('hidden');
+        panel.classList.remove('hidden');
+        await loadOrders();
+      } else {
+        loginMsg.classList.remove('hidden');
+        setTimeout(()=>loginMsg.classList.add('hidden'), 3000);
+      }
+    }
+
+    async function testKey(k) {
+      try {
+        const r = await fetch('/api/orders', { headers: { 'x-admin-key': k }});
+        return r.ok;
+      } catch { return false; }
+    }
+
+    async function loadOrders() {
+      const r = await fetch('/api/orders', { headers: { 'x-admin-key': getKey() } });
+      if (!r.ok) { alert('No se pudo cargar pedidos'); return; }
+      const data = await r.json();
+      renderOrders(data.orders || []);
+    }
+
+    function renderOrders(list) {
+      const f = filterStatus.value;
+      const filtered = list.filter(o => f==='all' ? true : o.status===f);
+
+      ordersBody.innerHTML = '';
+      let revenue = 0;
+      filtered.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+      filtered.forEach(o => {
+        if (o.status!=='rejected') revenue += Number(o.total||0);
+
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-zinc-800/60";
+        const itemsHtml = o.items.map(x => `<span class="chip">${x.name} x${x.qty}</span>`).join(' ');
+        const statusColor = o.status==='accepted' ? 'text-emerald-300' : o.status==='rejected' ? 'text-red-400' : 'text-amber-300';
+
+        tr.innerHTML = `
+          <td class="py-2 align-top text-zinc-400">${new Date(o.createdAt).toLocaleString()}</td>
+          <td class="py-2 align-top">${o.icName||'-'}</td>
+          <td class="py-2 align-top">${itemsHtml}</td>
+          <td class="py-2 align-top">${fmt(o.total||0)}</td>
+          <td class="py-2 align-top ${statusColor}">${o.status}</td>
+          <td class="py-2 align-top">
+            <div class="flex gap-2">
+              <button data-id="${o.id}" data-st="accepted" class="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white">Aceptar</button>
+              <button data-id="${o.id}" data-st="rejected" class="px-2 py-1 rounded bg-red-600 hover:bg-red-500 text-white">Rechazar</button>
+              <button data-id="${o.id}" data-st="pending" class="px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-white">Pendiente</button>
+            </div>
+          </td>
+        `;
+        ordersBody.appendChild(tr);
+      });
+
+      statTotal.textContent = list.length;
+      statPending.textContent = list.filter(o => o.status==='pending').length;
+      statRevenue.textContent = fmt(revenue);
+
+      ordersBody.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          const st = btn.getAttribute('data-st');
+          await updateOrderStatus(id, st);
+          await loadOrders();
+        });
+      });
+    }
+
+    async function updateOrderStatus(id, status) {
+      try {
+        const r = await fetch('/api/orders', {
+          method: 'PATCH',
+          headers: { 'Content-Type':'application/json', 'x-admin-key': getKey() },
+          body: JSON.stringify({ id, status })
+        });
+        if (!r.ok) throw new Error('Fail');
+      } catch {
+        alert('No se pudo actualizar el estado.');
+      }
+    }
+
+    enterBtn.addEventListener('click', login);
+    adminPass.addEventListener('keydown', (e)=>{ if (e.key==='Enter') login(); });
+    filterStatus.addEventListener('change', loadOrders);
+    refreshBtn.addEventListener('click', loadOrders);
+  </script>
+</body>
+</html>
