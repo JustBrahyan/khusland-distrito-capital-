@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Khusland — Distrito Capital</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+html,body{background:#0b0f14;color:#e5e7eb;font-family:system-ui,sans-serif}
+.card{background:linear-gradient(180deg,#0f1621,#0b0f14);border:1px solid rgba(229,199,123,.15);border-radius:1rem}
+.gold{color:#e5c77b}
+.pill{border:1px solid #2a3138;border-radius:999px;padding:.35rem .75rem;font-size:.85rem}
+.btn{border-radius:.8rem;padding:.6rem 1rem;font-weight:600}
+.btn-emerald{background:#1fa36d}
+.btn-emerald:hover{background:#19905f}
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.tag{font-size:.7rem;border:1px solid rgba(229,199,123,.35);border-radius:.45rem;padding:.1rem .4rem;color:#e5c77b}
+.shadow-gold{box-shadow:0 0 0 1px rgba(229,199,123,.25),0 20px 60px rgba(229,199,123,.12) inset}
+</style>
+</head>
+<body>
+<header class="sticky top-0 border-b border-zinc-800 bg-[#0b0f14]/80 backdrop-blur z-30">
+  <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-800 grid place-items-center text-xl">🌿</div>
+      <div>
+        <h1 class="text-lg font-semibold leading-tight">Khusland <span class="gold">— Distrito Capital</span></h1>
+        <p class="text-xs text-zinc-400 -mt-0.5">Distribuidor Principal • Marihuana Legal</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+  <section id="packs">
+    <h2 class="text-2xl font-semibold mb-1">📦 Packs Empresariales Khusland</h2>
+    <p class="text-sm text-zinc-400 mb-5">🕒 <b>Límite global:</b> 1 pack por negocio cada 24 horas. Si ya compraste un pack hoy, deberás esperar.</p>
+    <div id="list-packs" class="grid-cards"></div>
+    <div class="card p-4 mt-5">
+      <p class="text-amber-300 text-sm">⚠️ Aviso: los packs están restringidos a negocios con licencia emitida por la <b>Gobernación del Distrito Capital</b>. Pedidos no verificados serán <b>rechazados automáticamente</b>.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const money = n => "$" + n.toLocaleString("es-CO");
+const PACKS = [
+  {id:'punto', name:'Pack Punto Verde', base:26500, price:30000, img:'🌿'},
+  {id:'dist', name:'Pack Distribuidor Oficial', base:82500, price:60000, img:'🏛️'},
+  {id:'elite', name:'Pack Elite Khusland', base:175000, price:120000, img:'💎'},
+  {id:'vape', name:'Pack Vape Station', base:44000, price:70000, img:'💨'},
+  {id:'edible', name:'Pack Edible Café', base:44000, price:65000, img:'🍪'},
+  {id:'multi', name:'Pack Multi-Line', base:81500, price:85000, img:'⚡'},
+];
+
+function packCard(p){
+  const ahorro = Math.max(0, Math.round((1 - p.price/p.base)*100));
+  return `<div class="card p-5 shadow-gold">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-3xl">${p.img}</div>
+      <span class="tag">Límite global</span>
+    </div>
+    <h3 class="font-semibold text-lg mb-1">${p.name}</h3>
+    <p class="text-sm text-zinc-400 mb-3">Ideal para negocios con licencia Khusland.</p>
+    <div class="text-sm space-y-1 mb-3">
+      <div>Precio original: <s>${money(p.base)}</s></div>
+      <div>Precio pack: <span class="gold font-semibold">${money(p.price)}</span></div>
+      <div class="text-emerald-400">Ahorro: ${ahorro}%</div>
+    </div>
+    <button class="btn btn-emerald w-full" onclick="buyPack('${p.id}','${p.name}',${p.price})">Solicitar Pack Empresarial</button>
+  </div>`;
+}
+function render(){
+  document.getElementById('list-packs').innerHTML = PACKS.map(packCard).join('');
+}
+render();
+
+function buyPack(id,name,price){
+  const last=localStorage.getItem('khusland_pack_last')||0;
+  const now=Date.now();
+  if(now-Number(last)<24*60*60*1000){
+    alert('🚫 Ya realizaste una compra empresarial hoy. Solo se permite un pack cada 24h por negocio.');
+    return;
+  }
+  localStorage.setItem('khusland_pack_last',now);
+  alert('✅ Pedido enviado: '+name+' por '+money(price)+'\n📸 Toma captura y abre ticket para coordinar entrega.');
+}
+</script>
+</body></html>
